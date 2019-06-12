@@ -551,32 +551,39 @@ func (web *webAPIHandlers) ListObjects(r *http.Request, args *ListObjectsArgs, r
 		return toJSONError(ctx, errInvalidBucketName)
 	}
 
-	lo, err := listObjects(ctx, args.BucketName, args.Prefix, args.Marker, slashSeparator, 1000)
-	if err != nil {
-		return &json2.Error{Message: err.Error()}
-	}
-	for i := range lo.Objects {
-		if crypto.IsEncrypted(lo.Objects[i].UserDefined) {
-			lo.Objects[i].Size, err = lo.Objects[i].DecryptedSize()
-			if err != nil {
-				return toJSONError(ctx, err)
+	isTruncated := true
+	nextMarker := args.Marker
+	for isTruncated {
+
+		lo, err := listObjects(ctx, args.BucketName, args.Prefix, nextMarker, slashSeparator, 1000)
+		if err != nil {
+			return &json2.Error{Message: err.Error()}
+		}
+		for i := range lo.Objects {
+			if crypto.IsEncrypted(lo.Objects[i].UserDefined) {
+				lo.Objects[i].Size, err = lo.Objects[i].DecryptedSize()
+				if err != nil {
+					return toJSONError(ctx, err)
+				}
 			}
 		}
-	}
-	reply.NextMarker = lo.NextMarker
-	reply.IsTruncated = lo.IsTruncated
-	for _, obj := range lo.Objects {
-		reply.Objects = append(reply.Objects, WebObjectInfo{
-			Key:          obj.Name,
-			LastModified: obj.ModTime,
-			Size:         obj.Size,
-			ContentType:  obj.ContentType,
-		})
-	}
-	for _, prefix := range lo.Prefixes {
-		reply.Objects = append(reply.Objects, WebObjectInfo{
-			Key: prefix,
-		})
+		reply.NextMarker = lo.NextMarker
+		reply.IsTruncated = lo.IsTruncated
+		for _, obj := range lo.Objects {
+			reply.Objects = append(reply.Objects, WebObjectInfo{
+				Key:          obj.Name,
+				LastModified: obj.ModTime,
+				Size:         obj.Size,
+				ContentType:  obj.ContentType,
+			})
+		}
+		for _, prefix := range lo.Prefixes {
+			reply.Objects = append(reply.Objects, WebObjectInfo{
+				Key: prefix,
+			})
+		}
+		isTruncated = lo.IsTruncated
+		nextMarker = lo.NextMarker
 	}
 
 	return nil
