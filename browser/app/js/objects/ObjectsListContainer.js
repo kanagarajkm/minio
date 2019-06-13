@@ -22,18 +22,45 @@ import * as actionsObjects from "./actions"
 import ObjectsList from "./ObjectsList"
 
 export class ObjectsListContainer extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      page: 1
+    }
+    this.loadNextPage = this.loadNextPage.bind(this)
+  }
+  componentWillReceiveProps(nextProps) {
+    if (
+      nextProps.currentBucket !== this.props.currentBucket ||
+      nextProps.currentPrefix !== this.props.currentPrefix ||
+      nextProps.sortBy !== this.props.sortBy ||
+      nextProps.sortOrder !== this.props.sortOrder
+    ) {
+      this.setState({
+        page: 1
+      })
+    }
+  }
+  loadNextPage() {
+    this.setState(state => {
+      return { page: state.page + 1 }
+    })
+  }
   render() {
     const { objects, isTruncated, currentBucket, loadObjects } = this.props
+
+    const visibleObjects = objects.slice(0, this.state.page * 100)
+
     return (
       <div className="feb-container">
         <InfiniteScroll
           pageStart={0}
-          loadMore={() => loadObjects(true)}
-          hasMore={isTruncated}
+          loadMore={this.loadNextPage}
+          hasMore={objects.length > visibleObjects.length}
           useWindow={true}
           initialLoad={false}
         >
-          <ObjectsList objects={objects} />
+          <ObjectsList objects={visibleObjects} />
         </InfiniteScroll>
         <div
           className="text-center"
@@ -51,7 +78,9 @@ const mapStateToProps = state => {
     currentBucket: state.buckets.currentBucket,
     currentPrefix: state.objects.currentPrefix,
     objects: state.objects.list,
-    isTruncated: state.objects.isTruncated
+    isTruncated: state.objects.isTruncated,
+    sortBy: state.objects.sortBy,
+    sortOrder: state.objects.sortOrder
   }
 }
 
@@ -61,6 +90,7 @@ const mapDispatchToProps = dispatch => {
   }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(
-  ObjectsListContainer
-)
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(ObjectsListContainer)
