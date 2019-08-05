@@ -21,6 +21,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -259,7 +260,8 @@ func (h cacheControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && guessIsBrowserReq(r) {
 		// For all browser requests set appropriate Cache-Control policies
 		if hasPrefix(r.URL.Path, minioReservedBucketPath+"/") {
-			if hasSuffix(r.URL.Path, ".js") || r.URL.Path == minioReservedBucketPath+"/favicon.ico" {
+			faviconRx := regexp.MustCompile(minioReservedBucketPath + "/(favicon\\.ico|favicon-.*\\.png)$")
+			if hasSuffix(r.URL.Path, ".js") || faviconRx.MatchString(r.URL.Path) {
 				// For assets set cache expiry of one year. For each release, the name
 				// of the asset name will change and hence it can not be served from cache.
 				w.Header().Set(xhttp.CacheControl, "max-age=31536000")
